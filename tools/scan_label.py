@@ -38,7 +38,11 @@ for user in users:
                 jsonfile = os.path.join('data',s,'label', frame+".json")
                 if os.path.isfile(jsonfile):
                     with open(jsonfile) as f:
-                        label = json.load(f)
+                        try:
+                           label = json.load(f)
+                        except:
+                           print("format error:", jsonfile)
+
                         if 'objs' in label:
                             label = label['objs']
                         obj_counter += len(label)
