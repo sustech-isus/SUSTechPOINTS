@@ -1,5 +1,5 @@
 
-import { checkScene } from './error_check.js';
+import { check3dLabels } from './error_check.js';
 import { jsonrpc } from './jsonrpc.js';
 import { logger } from './log.js';
 
@@ -16,22 +16,29 @@ function reloadWorldList (worldList, done) {
         frame: w.frameInfo.frame
       };
     });
-    jsonrpc('/api/loadworldlist', 'POST', para).then(anns => {
-      // load annotations
-      anns.forEach(a => {
-        const world = worldList.find(w => {
-          return (w.frameInfo.scene === a.scene &&
-                            w.frameInfo.frame === a.frame);
-        });
-        if (world) {
-          world.annotation.reapplyAnnotation(a.annotation.objs ? a.annotation.objs : a.annotation);
-        } else {
-          console.error('bug?');
-        }
-      });
 
-      if (done) { done(); }
-    });
+    
+    // jsonrpc('/api/loadworldlist', 'POST', para).then(anns => {
+    //   // load annotations
+    //   anns.forEach(a => {
+    //     const world = worldList.find(w => {
+    //       return (w.frameInfo.scene === a.scene &&
+    //                         w.frameInfo.frame === a.frame);
+    //     });
+    //     if (world) {
+    //       world.annotation.reapplyAnnotation(a.annotation.objs ? a.annotation.objs : a.annotation);
+    //     } else {
+    //       console.error('bug?');
+    //     }
+    //   });
+
+    //   if (done) { done(); }
+    // });
+
+    const data = worldList[0].data;
+    data.deleteWorldList(worldList);
+    
+
   },
 
   500);
@@ -56,7 +63,7 @@ function saveWorldList (worldList) {
       window.editor.header.updateModifiedStatus();
 
       if (window.editor.editorCfg.autoCheckScene) {
-        checkScene(scene);
+        check3dLabels(scene);
       }
     });
 

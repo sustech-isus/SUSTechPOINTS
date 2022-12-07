@@ -27,6 +27,19 @@ function Annotation (sceneMeta, world, frameInfo) {
       return x.position.y - y.position.y;
     });
   };
+
+  this.maxBoxId = function() {
+
+    let id = 0;
+    this.boxes.forEach(x=>{
+      if (x.obj_id > id) {
+        id = x.obj_id;
+      }
+    });
+
+    return id;
+  };
+
   this.findBoxByTrackId = function (id) {
     if (this.boxes) {
       const box = this.boxes.find(function (x) {
@@ -323,7 +336,7 @@ function Annotation (sceneMeta, world, frameInfo) {
     this.boxes = this.boxes.filter(function (x) { return x !== box; });
   };
 
-  this.set_box_opacity = function (boxOpacity) {
+  this.setBoxOpacity = function (boxOpacity) {
     this.boxes.forEach(function (x) {
       x.material.opacity = boxOpacity;
     });

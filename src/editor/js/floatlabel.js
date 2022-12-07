@@ -7,13 +7,13 @@ import { DropdownMenu } from './common/sensible_dropdown_menu.js';
 import { ObjTypeEditor } from './common/obj_type_editor.js';
 
 class FastToolBox {
-  constructor (ui, eventHandler) {
+  constructor (ui) {
     this.ui = ui;
-    this.eventHandler = eventHandler;
+    this.eventHandler = ()=>{};  // placeholder
 
     this.installEventHandler();
 
-    this.attrEditor = new AttrEditor(this.ui.querySelector('#attr-editor'), eventHandler);
+    this.attrEditor = new AttrEditor(this.ui.querySelector('#attr-editor'), (e)=>this.eventHandler(e));
 
     this.objTypeEditor = new ObjTypeEditor(this.ui.querySelector('#object-category-selector'));
 
@@ -33,13 +33,22 @@ class FastToolBox {
     }
   }
 
+
+
   hide () {
     this.ui.style.display = 'none';
   }
 
-  show () {
+  show (eventHandler, notools) {
+    this.eventHandler = eventHandler;
     this.ui.style.display = 'inline-block';
     this.ui.querySelector('#attr-selector').style.display = 'none';
+
+    if (notools) {
+      this.ui.querySelector("#obj-editor-buttons").style.display = 'none';
+    } else {
+      this.ui.querySelector("#obj-editor-buttons").style.display = 'flex';
+    }
   }
 
   setValue (objType, objTrackId, objAttr) {

@@ -26,6 +26,7 @@ env = Environment(loader=FileSystemLoader('./'))
 
 import scene_reader
 from tools  import check_labels as check
+from tools  import check_fusion_labels as check_fusion
 from cherrypy.process.plugins import Monitor
 
 
@@ -252,13 +253,19 @@ class Api(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def checkscene(self, scene):
+    def check3dlabels(self, scene):
       ck = check.LabelChecker(os.path.join("./data", scene))
       ck.check()
       #print(ck.messages)
       return ck.messages
 
-
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def check2dlabels(self, scene):
+      ck = check_fusion.FusionLabelChecker(os.path.join("./data", scene))
+      ck.check()
+      #print(ck.messages)
+      return ck.messages
     # @cherrypy.expose
     # @cherrypy.tools.json_out()
     # def interpolate(self, scene, frame, obj_id):
@@ -298,6 +305,12 @@ class Api(object):
     @cherrypy.tools.json_out()
     def load_image_annotation(self, scene, frame, camera_type, camera_name):
       return scene_reader.read_image_annotations(scene, frame, camera_type, camera_name)
+
+    @cherrypy.expose    
+    @cherrypy.tools.json_out()
+    def load_all_image_annotation(self, scene, frame, cameras, aux_cameras):
+      return scene_reader.read_all_image_annotations(scene, frame, cameras, aux_cameras)
+
 
     @cherrypy.expose    
     @cherrypy.tools.json_out()

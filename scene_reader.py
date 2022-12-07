@@ -124,9 +124,13 @@ def get_one_scene(s):
                     calib_name, ext = os.path.splitext(c)
                     if os.path.isfile(calib_file) and ext==".json": #ignore directories.
                         #print(calib_file)
-                        with open(calib_file)  as f:
-                            cal = json.load(f)
-                            calib[sensor_type][calib_name] = cal
+                        try:
+                            with open(calib_file)  as f:
+                                cal = json.load(f)
+                                calib[sensor_type][calib_name] = cal
+                        except: 
+                            print('reading calib failed: ', f)
+                            assert False, f
 
         
             # if os.path.exists(os.path.join(scene_dir, "calib", "radar")):
@@ -285,6 +289,29 @@ def read_image_annotations(scene, frame, camera_type, camera_name):
                 #print(ann)          
                 return ann
     return {'objs': []}
+
+
+def read_all_image_annotations(scene, frame, cameras, aux_cameras):
+    ann = {
+        "camera": {},
+        "aux_camera": {}
+    }
+    for c in cameras.split(','):
+        filename = os.path.join(root_dir, scene, "label_fusion", 'camera', c, frame+".json")   # backward compatible
+        if os.path.exists(filename):
+            if (os.path.isfile(filename)):
+                with open(filename,"r") as f:
+                    ann['camera'][c] = json.load(f)
+
+
+    for c in aux_cameras.split(','):
+        filename = os.path.join(root_dir, scene, "label_fusion", 'aux_camera', c, frame+".json")   # backward compatible
+        if os.path.exists(filename):
+            if (os.path.isfile(filename)):
+                with open(filename,"r") as f:
+                    ann['aux_camera'][c] = json.load(f)
+
+    return ann
 
 def read_ego_pose(scene, frame):
     filename = os.path.join(root_dir, scene, "ego_pose", frame+".json")

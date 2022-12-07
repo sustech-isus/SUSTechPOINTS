@@ -21,9 +21,9 @@ class AuxLidar {
 
     if (!this.color) {
       this.color = [
-        this.world.data.cfg.piontBrightness,
-        this.world.data.cfg.piontBrightness,
-        this.world.data.cfg.piontBrightness
+        this.world.data.cfg.pointBrightness,
+        this.world.data.cfg.pointBrightness,
+        this.world.data.cfg.pointBrightness
       ];
     }
 
@@ -269,7 +269,7 @@ class AuxLidar {
     let pointSize = this.sceneMeta.calib.aux_lidar[this.name].point_size;
     if (!pointSize) { pointSize = 1; }
 
-    const material = new THREE.PointsMaterial({ size: pointSize, vertexColors: true});
+    const material = new THREE.PointsMaterial({ size: pointSize, vertexColors: true });
     // material.size = 2;
     material.sizeAttenuation = false;
 

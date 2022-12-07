@@ -106,7 +106,7 @@ class Lidar {
 
       // by default we set all points to same color
       for (let i = 0; i < position.length; ++i) {
-        color.push(this.data.cfg.piontBrightness);
+        color.push(this.data.cfg.pointBrightness);
       }
 
       // if enabled intensity we color points by intensity.
@@ -131,13 +131,13 @@ class Lidar {
     }
 
     const colorAttribute = new THREE.Float32BufferAttribute(color, 3);
-		colorAttribute.setUsage( THREE.DynamicDrawUsage );
+    colorAttribute.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('color', colorAttribute);
 
     geometry.computeBoundingSphere();
     // build material
 
-    const material = new THREE.PointsMaterial({ size: this.data.cfg.point_size, vertexColors: true});
+    const material = new THREE.PointsMaterial({ size: this.data.cfg.point_size, vertexColors: true });
 
     /*
 
@@ -241,7 +241,7 @@ class Lidar {
       }
 
       if (this.data.cfg.colorObject !== 'no') {
-        this.colorObjectgs();
+        this.colorObjects();
       }
 
       if (onGoFinished) { onGoFinished(); }
@@ -287,7 +287,7 @@ class Lidar {
     }
   }
 
-  colorObjectgs () {
+  colorObjects () {
     if (this.data.cfg.colorObject !== 'no') {
       this.world.annotation.boxes.forEach((b) => {
         if (!b.annotator) {
@@ -320,12 +320,12 @@ class Lidar {
     } else {
       // mono color
       for (let i = 0; i < this.pcd.position.length; ++i) {
-        color[i] = this.data.cfg.piontBrightness;
+        color[i] = this.data.cfg.pointBrightness;
       }
     }
 
     // step 2 color objects
-    this.colorObjectgs();
+    this.colorObjects();
 
     // this.updatePointsColor();
   }
@@ -504,7 +504,7 @@ class Lidar {
 
     geometry.computeBoundingSphere();
 
-    const material = new THREE.PointsMaterial({ size: _self.data.cfg.point_size, vertexColors: true});
+    const material = new THREE.PointsMaterial({ size: _self.data.cfg.point_size, vertexColors: true });
 
     material.sizeAttenuation = false;
 
@@ -523,7 +523,7 @@ class Lidar {
 
   cancelHightlight (box) {
     if (this.points && this.points.pointsBackup) {
-      this.world.annotation.set_box_opacity(this.data.cfg.box_opacity);
+      this.world.annotation.setBoxOpacity(this.data.cfg.box_opacity);
 
       // copy colors, maybe changed.
       if (this.data.cfg.colorObject !== 'no') {
@@ -586,7 +586,7 @@ class Lidar {
     }
 
     // hide all other boxes
-    this.world.annotation.set_box_opacity(0);
+    this.world.annotation.setBoxOpacity(0);
 
     // keep myself
     box.material.opacity = 1;
@@ -621,7 +621,7 @@ class Lidar {
 
     geometry.computeBoundingSphere();
 
-    const material = new THREE.PointsMaterial({ size: _self.data.cfg.point_size, vertexColors: true});
+    const material = new THREE.PointsMaterial({ size: _self.data.cfg.point_size, vertexColors: true });
 
     material.sizeAttenuation = false;
 
@@ -873,6 +873,53 @@ class Lidar {
     return minZ;
   }
 
+  computeGroundLevel(box) {
+    console.log('computeGroundLevelminDistance');
+    const initScaleRatio = {
+      x: 2,
+      y: 2,
+      z: 10
+    };
+
+    // const start_time = new Date().getTime()
+    const points = this.points;
+    const posArray = points.geometry.getAttribute('position').array;
+
+    const trans = transpose(eulerAngleToRotationMatrix(box.rotation, { x: 0, y: 0, z: 0 }), 4);
+
+    const candPointIndices = this.getCoveringPositionIndices(points, box.position, box.scale, box.rotation, initScaleRatio);
+
+    // all cand points are translated into box coordinates
+
+    const translatedCandPoints = candPointIndices.map(function (i) {
+      const x = posArray[i * 3];
+      const y = posArray[i * 3 + 1];
+      const z = posArray[i * 3 + 2];
+
+      const p = [x - box.position.x, y - box.position.y, z - box.position.z, 1];
+      const tp = matmul(trans, p, 4);
+      return tp;
+    });
+
+    
+
+    if (translatedCandPoints.length > 0) {
+      
+      let groundLevel = 10;
+
+      translatedCandPoints.forEach((tp, i) => {
+        if (tp[2] < groundLevel) {
+          groundLevel = tp[2];
+        }      
+      });
+
+      return groundLevel;
+    }
+
+    return -1.8;
+   
+  }
+
   growBox (box, minDistance, initScaleRatio) {
     console.log('grow box, minDistance', minDistance, box.scale, initScaleRatio);
     // const start_time = new Date().getTime()
@@ -965,7 +1012,8 @@ class Lidar {
           x: -box.scale.x / 2,
           y: -box.scale.y / 2,
           z: -box.scale.z / 2
-        }
+        },
+        insidePoints: insidePoints,
       };
     }
 
@@ -1135,9 +1183,9 @@ class Lidar {
       });
     } else {
       indices.forEach((i) => {
-        color[i * 3] = this.data.cfg.piontBrightness;
-        color[i * 3 + 1] = this.data.cfg.piontBrightness;
-        color[i * 3 + 2] = this.data.cfg.piontBrightness;
+        color[i * 3] = this.data.cfg.pointBrightness;
+        color[i * 3 + 1] = this.data.cfg.pointBrightness;
+        color[i * 3 + 2] = this.data.cfg.pointBrightness;
       });
     }
   }
@@ -1181,9 +1229,9 @@ class Lidar {
   // this is used when pointbrightness is updated.
   recolorAllPoints () {
     this.setPointsColor({
-      x: this.data.cfg.piontBrightness,
-      y: this.data.cfg.piontBrightness,
-      z: this.data.cfg.piontBrightness
+      x: this.data.cfg.pointBrightness,
+      y: this.data.cfg.pointBrightness,
+      z: this.data.cfg.pointBrightness
     });
     this.colorPoints();
     this.updatePointsColor();
