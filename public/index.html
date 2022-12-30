@@ -316,14 +316,17 @@
 								</div>
 							</div>
 						</div>
+
+						<div class = "obj-editor-row">
+							<div id="object-info">
+							</div>
+						</div>
 						
 					</div>
 
 					<div id="images-wrapper">
 					</div>
-					
-
-
+				
 				</div>
 				
 				<div id="context-menu-wrapper" class="non-selectable">
@@ -508,6 +511,17 @@
 							<div class="menu-item-text">Show all objects</div>				
 						</div>
 
+						<!-- <div class="menu-item" id="cm-show-objs-of-type">
+							<div class="menu-item-icon"></div>
+							<div class="menu-item-text">Show objects of type</div>
+							<div class="menu-item-arrow menu-item-icon">
+								<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" class="svg-menu-icon"><g>
+									<path d="M12 8 L 18 12 L 12 16Z"></path>
+								</g></svg>
+							</div>
+							<div id="show-submenu">
+							</div>
+						</div> -->
 					</div>
 				
 					<div id="object-context-menu">
@@ -576,6 +590,11 @@
 						<div class="menu-item" id="cm-follow-static-objects">
 							<div class="menu-item-icon"></div>
 							<div class="menu-item-text">Follow Static Objects</div>
+						</div>
+
+						<div class="menu-item" id="cm-show-all-objs-by-type">
+							<div class="menu-item-icon"></div>
+							<div class="menu-item-text">Show all objects of this type</div>				
 						</div>
 
 					</div>
@@ -1225,9 +1244,6 @@
 						</div>
 					</div>
 				</div>
-
-				<div id="move-handle-wrapper">
-				</div>
 				
 				<div id="info-wrapper" class="popup-window-wrapper" tabindex='-1'>
 					<div id="view">
@@ -1260,6 +1276,30 @@
 							<button id="btn-yes">Yes</button>							
 						</div>
 					</div>
+				</div>
+
+				<div id="multi-class-chooser-wrapper"  class="popup-window-wrapper">
+					<div id="view">
+						<div id="header">
+							<span id="title">Info</span>
+							<div id="buttons">
+								<div id="btn-exit" class="ui-button"  title="exit">
+									<!-- <span class="ui-icon ui-icon-trash"></span> -->
+									<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" class="svg-button"><g>
+										<path d="M4 4 L 20 20 M 20 4 L 4 20"></path>
+									</g></svg>
+								</div>
+							</div>
+						</div>
+						<div id="content"></div>
+						<div id="bottom-buttons">
+							<button id="btn-no">Cancel</button>
+							<button id="btn-yes">Yes</button>							
+						</div>
+					</div>
+				</div>
+
+				<div id="move-handle-wrapper">
 				</div>
 				
 		</template>
@@ -1556,8 +1596,8 @@
 											reset view										
 									</div>
 									
-									<div id='generate-by-3d-points' class="menu-item">										
-										generate by 3d points
+									<div id='generate-by-3d-labels' class="menu-item">										
+										generate by 3d labels
 									</div>
 
 									<div id='check-rects' class="menu-item">										
@@ -1593,6 +1633,22 @@
 									<!-- <span class="ui-icon ui-icon-trash"></span> -->
 									<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" class="svg-button"><g>
 										<rect x="6" y="6" width="12" height="12"/>	
+									</g></svg>
+								</div>
+
+								<div id="label-remove-ground-points" class="ui-button"  title="remove ground points">
+									<!-- <span class="ui-icon ui-icon-trash"></span> -->
+									<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" class="svg-button"><g>
+										<rect x="6" y="6" width="12" height="8"/>
+										<line x1="6" y1="18" x2="18" y2="18"/>
+									</g></svg>
+								</div>
+
+								<div id="label-follow-other-image" class="ui-button"  title="follow other image">
+									<!-- <span class="ui-icon ui-icon-trash"></span> -->
+									<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" class="svg-button"><g>
+										<circle  cx=10 cy=10 r=5 />
+										<circle  cx=14 cy=14 r=5 />
 									</g></svg>
 								</div>
 

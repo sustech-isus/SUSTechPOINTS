@@ -51,12 +51,15 @@ class FastToolBox {
     }
   }
 
-  setValue (objType, objTrackId, objAttr) {
+  setValue (objType, objTrackId, objAttr, obj) {
     this.objTypeEditor.setValue(objType);
 
     this.attrEditor.setAttrOptions(objType, objAttr);
 
     this.ui.querySelector('#object-track-id-editor').value = objTrackId;
+
+    const s = obj.scale;
+    this.ui.querySelector("#object-info").innerHTML = `L ${s.x.toFixed(2)}, W ${s.y.toFixed(2)}, H ${s.z.toFixed(2)}`;
   }
 
   setPos (pos) {
@@ -188,6 +191,7 @@ class FloatLabelManager {
   removeAllLabels () {
     if (this.labelsUi.children.length > 0) {
       for (let c = this.labelsUi.children.length - 1; c >= 0; c--) {
+        this.labelsUi.children[c].onclick = null;
         this.labelsUi.children[c].remove();
       }
     }
@@ -230,7 +234,7 @@ class FloatLabelManager {
     const label = this.editorUi.querySelector('#obj-local-' + localId);
     if (label) {
       label.obj_type = objType;
-      label.updateText();
+      this.updateLabelText(label);
       this.updateColor(label);
     }
   }
@@ -239,7 +243,7 @@ class FloatLabelManager {
     const label = this.editorUi.querySelector('#obj-local-' + localId);
     if (label) {
       label.obj_attr = objAttr;
-      label.updateText();
+      this.updateLabelText(label);
       this.updateColor(label);
     }
   }
@@ -249,7 +253,7 @@ class FloatLabelManager {
 
     if (label) {
       label.obj_id = trackId;
-      label.updateText();
+      this.updateLabelText(label);
       this.updateColor(label);
     }
   }
@@ -308,34 +312,34 @@ class FloatLabelManager {
     label.orgClassName = label.className;
   }
 
+  updateLabelText(div) {
+    let labelText = '<div class="label-obj-type-text">';
+    labelText += div.obj_type;
+    labelText += '</div>';
+
+    if (div.obj_attr) {
+      labelText += '<div class="label-obj-attr-text">';
+      labelText += div.obj_attr;
+      labelText += '</div>';
+    }
+
+    labelText += '<div class="label-obj-id-text">';
+    labelText += div.obj_id;
+    labelText += '</div>';
+
+    div.innerHTML = labelText;
+  }
+
   addLabel (box) {
     const label = document.createElement('div');
 
     label.id = 'obj-local-' + box.objLocalId;
 
-    label.updateText = function () {
-      let labelText = '<div class="label-obj-type-text">';
-      labelText += this.obj_type;
-      labelText += '</div>';
-
-      if (this.obj_attr) {
-        labelText += '<div class="label-obj-attr-text">';
-        labelText += this.obj_attr;
-        labelText += '</div>';
-      }
-
-      labelText += '<div class="label-obj-id-text">';
-      labelText += this.obj_id;
-      labelText += '</div>';
-
-      this.innerHTML = labelText;
-    };
-
     label.obj_type = box.obj_type;
     label.objLocalId = box.objLocalId;
     label.obj_id = box.obj_id;
     label.obj_attr = box.obj_attr;
-    label.updateText();
+    this.updateLabelText( label );
     this.updateColor(label);
 
     label.vertices = this.translateVerticesToGlobal(box.world, pxrToXyz(box.position, box.scale, box.rotation));

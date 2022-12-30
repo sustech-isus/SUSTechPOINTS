@@ -314,10 +314,10 @@ function BoxOp () {
 
   this.estimate_rotation_by_moving_direciton = function (box) {
     const prevWorld = box.world.data.findWorld(box.world.frameInfo.scene,
-      box.world.frameInfo.frameIndex - 1);
+      box.world.frameInfo.getFrameIndex() - 1);
 
     const nextWorld = box.world.data.findWorld(box.world.frameInfo.scene,
-      box.world.frameInfo.frameIndex + 1);
+      box.world.frameInfo.getFrameIndex() + 1);
 
     let prevBox = prevWorld ? prevWorld.annotation.findBoxByTrackId(box.obj_id) : null;
     let nextBox = nextWorld ? nextWorld.annotation.findBoxByTrackId(box.obj_id) : null;
@@ -603,7 +603,9 @@ function BoxOp () {
 
       // box.material.opacity = box.world.data.cfg.box_opacity;
 
-      box.world.annotation.color_box(box);
+      if (box.world && box.world.annotation) {
+        box.world.annotation.color_box(box);
+      }
     }
   };
 

@@ -177,6 +177,26 @@ def euler_angle_to_rotate_matrix_3x3(eu):
     return R
 
 
+def crop_box_pts(pts, box):
+    eu = [box['psr']['rotation']['x'], box['psr']['rotation']['y'], box['psr']['rotation']['z']]
+    trans_matrix = euler_angle_to_rotate_matrix_3x3(eu)
+
+    center = np.array([box['psr']['position']['x'], box['psr']['position']['y'], box['psr']['position']['z']])
+    box_pts = np.matmul((pts - center), (trans_matrix))
+
+    ground_level = 0.3
+    if box['psr']['scale']['z'] < 2:
+        ground_level = box['psr']['scale']['z'] * 0.15
+
+    filter =  (box_pts[:, 0] < box['psr']['scale']['x']/2) & (box_pts[:, 0] > - box['psr']['scale']['x']/2) & \
+             (box_pts[:, 1] < box['psr']['scale']['y']/2) & (box_pts[:, 1] > - box['psr']['scale']['y']/2)
+
+    topfilter =    filter & (box_pts[:, 2] < box['psr']['scale']['z']/2) & (box_pts[:, 2] >= - box['psr']['scale']['z']/2 + ground_level)
+
+    groundfilter = filter & (box_pts[:, 2] < -box['psr']['scale']['z']/2+ground_level) & (box_pts[:, 2] > - box['psr']['scale']['z']/2)
+    
+    
+    return [box_pts[topfilter], box_pts[groundfilter], ground_level]
 
 def crop_pts(pts, box):
     eu = [box['psr']['rotation']['x'], box['psr']['rotation']['y'], box['psr']['rotation']['z']]
@@ -185,12 +205,17 @@ def crop_pts(pts, box):
     center = np.array([box['psr']['position']['x'], box['psr']['position']['y'], box['psr']['position']['z']])
     box_pts = np.matmul((pts - center), (trans_matrix))
 
+    ground_level = 0.3
+    if box['psr']['scale']['z'] < 2:
+        ground_level = box['psr']['scale']['z'] * 0.15
+
+
     filter =  (box_pts[:, 0] < box['psr']['scale']['x']/2) & (box_pts[:, 0] > - box['psr']['scale']['x']/2) & \
              (box_pts[:, 1] < box['psr']['scale']['y']/2) & (box_pts[:, 1] > - box['psr']['scale']['y']/2)
 
-    topfilter =    filter & (box_pts[:, 2] < box['psr']['scale']['z']/2) & (box_pts[:, 2] >= - box['psr']['scale']['z']/2 + 0.3)
+    topfilter =    filter & (box_pts[:, 2] < box['psr']['scale']['z']/2) & (box_pts[:, 2] >= - box['psr']['scale']['z']/2 + ground_level)
 
-    groundfilter = filter & (box_pts[:, 2] < -box['psr']['scale']['z']/2+0.3) & (box_pts[:, 2] > - box['psr']['scale']['z']/2)
+    groundfilter = filter & (box_pts[:, 2] < -box['psr']['scale']['z']/2+ground_level) & (box_pts[:, 2] > - box['psr']['scale']['z']/2)
     
     
     return [pts[topfilter], pts[groundfilter]]
@@ -214,3 +239,29 @@ def gen_2dbox_for_obj_pts(box3d_pts, extrinsic, intrinsic, width, height):
                 "y2": q2[1] if img_pts_ground.shape[0]>1 else p2[1] #p2[1]
             }
     return None
+
+
+def gen_2dbox_for_obj_corners(box3d, extrinsic, intrinsic, width, height):
+
+    corners = box3d_to_corners(box3d)
+    corners_img = proj_pts3d_to_img(corners, extrinsic, intrinsic,width, height) 
+    if corners_img.shape[0] == 0:
+        print("rect points all out of image", o['obj_id'])
+        return None
+        
+    corners_img = corners_img[:, 0:2]
+    p1 = np.min(corners_img, axis=0)
+    p2 = np.max(corners_img, axis=0)
+
+    rect = {
+            "x1": p1[0],
+            "y1": p1[1],
+            "x2": p2[0],
+            "y2": p2[1]
+        }
+
+    return rect
+
+def box_distance(box):
+    p = box['psr']['position']
+    return math.sqrt((p['x']*p['x'] + p['y']*p['y']))

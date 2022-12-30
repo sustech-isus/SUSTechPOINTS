@@ -11,7 +11,7 @@ import { Header } from './header.js';
 import { BoxOp } from './box_op.js';
 import { AutoAdjust } from './auto-adjust.js';
 import { PlayControl } from './play.js';
-import { reloadWorldList, saveWorldList } from './save.js';
+import { saveWorldList } from './save.js';
 import { logger, createLogger } from './log.js';
 import { autoAnnotate } from './auto_annotate.js';
 import { CalibTool } from './calib_tool';
@@ -25,7 +25,8 @@ import { globalKeyDownManager } from './keydown_manager.js';
 import { vectorRange } from './util.js';
 import { check3dLabels, check2dLabels } from './error_check.js';
 import { jsonrpc } from './jsonrpc.js';
-import { unstable_renderSubtreeIntoContainer } from 'react-dom';
+import { MultiClassChooserBox } from './multiclass_chooser_box';
+
 
 function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
   // create logger before anything else.
@@ -159,6 +160,10 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
 
     this.infoBox = new InfoBox(
       this.editorUi.querySelector('#info-wrapper')
+    );
+
+    this.multiClassChooserBox = new MultiClassChooserBox(
+      this.editorUi.querySelector('#multi-class-chooser-wrapper')
     );
 
     this.cropScene = new CropScene(
@@ -359,7 +364,7 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
         // event.currentTarget.blur();
         {
           const id = objIdManager.generateNewUniqueId(this.data.world);
-          self.fastToolBox.setValue(self.selectedBox.obj_type, id, self.selectedBox.obj_attr);
+          self.fastToolBox.setValue(self.selectedBox.obj_type, id, self.selectedBox.obj_attr, self.selectedBox);
           self.setObjectId(id);
         }
         break;
@@ -596,37 +601,13 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
       case 'cm-first-frame':
         this.firstFrmae();
         break;
-        // case 'cm-go-to-10hz':
-        //     this.loadWorld(this.data.world.frameInfo.scene+"_10hz", this.data.world.frameInfo.frame)
-
-        //     // {
-        //     //     let link = document.createElement("a");
-        //     //     //link.download=`${this.data.world.frameInfo.scene}-${this.data.world.frameInfo.frame}-webgl`;
-        //     //     link.href="http://localhost";
-        //     //     link.target="_blank";
-        //     //     link.click();
-        //     // }
-        //     break;
-        // case 'cm-go-to-full-2hz':
-        //     this.loadWorld(this.data.world.frameInfo.scene+"_full_2hz", this.data.world.frameInfo.frame)
-        //     break;
-
-        // case 'cm-go-to-2hz':
-        //     this.loadWorld(this.data.world.frameInfo.scene.split("_")[0], this.data.world.frameInfo.frame)
-        //     break;
 
       case 'cm-save':
         saveWorldList(this.data.worldList);
         break;
 
       case 'cm-reload':
-
-        // reloadWorldList([this.data.world], () => {
-        //   this.onLoadWorldFinished(this.data.world);
-        //   this.header.updateModifiedStatus();
-        // });
         this.reloadCurrentWorld();
-
         break;
 
       case 'cm-reload-all':
@@ -652,7 +633,8 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
         {
           let info = {
             'scend-id': this.data.world.frameInfo.scene,
-            frame: this.data.world.frameInfo.frame
+            frame: this.data.world.frameInfo.frame,
+            index: this.data.world.frameInfo.getFrameIndex(),
           };
 
           if (this.data.world.frameInfo.sceneMeta.desc) {
@@ -701,9 +683,26 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
           break;
 
       case 'cm-show-all-objs':
-        this.editBatch(this.data.world.frameInfo.scene, this.data.world.frameInfo.frame)
-        break;
+        this.multiClassChooserBox.show(
+          'Choose classes',          
+          ['yes', 'no'],
+          (btn) => {
+            if (btn === 'yes') {
+              this.editBatch(
+                this.data.world.frameInfo.scene, 
+                this.data.world.frameInfo.frame, 
+                undefined, 
+                this.multiClassChooserBox.getSelectedClasses()
+                )
+            }
+          });
 
+        
+        break;
+      case 'cm-show-all-objs-by-type':
+        this.editBatch(this.data.world.frameInfo.scene, this.data.world.frameInfo.frame, undefined, [this.selectedBox.obj_type])
+        break;
+        
       case 'cm-reset-view':
         this.resetView();
         break;
@@ -742,7 +741,8 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
         this.setObjectId(this.autoAdjust.marked_object.ann.obj_id);
         this.fastToolBox.setValue(this.selectedBox.obj_type,
           this.selectedBox.obj_id,
-          this.selectedBox.obj_attr);
+          this.selectedBox.obj_attr, 
+          this.selectedBox);
 
         break;
       case 'cm-change-id-to-ref-in-scene':
@@ -762,7 +762,8 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
         this.setObjectId(this.autoAdjust.marked_object.ann.obj_id);
         this.fastToolBox.setValue(this.selectedBox.obj_type,
           this.selectedBox.obj_id,
-          this.selectedBox.obj_attr);
+          this.selectedBox.obj_attr,
+          this.selectedBox);
 
         break;
       case 'cm-follow-ref':
@@ -958,6 +959,9 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
   };
 
   this.frame_changed = function (event) {
+
+    this.playControl.stopPlay();
+
     let sceneName = this.editorUi.querySelector('#scene-selector').value;
 
     if (sceneName.length === 0 && this.data.world) {
@@ -998,7 +1002,7 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
 
   this.ensurePreloaded = function () {
     let worldList = this.data.worldList.filter(w => w.frameInfo.scene === this.data.world.frameInfo.scene);
-    worldList = worldList.sort((a, b) => a.frameInfo.frameIndex - b.frameInfo.frameIndex);
+    worldList = worldList.sort((a, b) => a.frameInfo.getFrameIndex() - b.frameInfo.getFrameIndex());
 
     // const meta = this.data.getCurrentWorldSceneMeta();
 
@@ -1021,7 +1025,7 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
     if (!this.ensurePreloaded()) { return; }
 
     let worldList = this.data.worldList.filter(w => w.frameInfo.scene === this.data.world.frameInfo.scene);
-    worldList = worldList.sort((a, b) => a.frameInfo.frameIndex - b.frameInfo.frameIndex);
+    worldList = worldList.sort((a, b) => a.frameInfo.getFrameIndex() - b.frameInfo.getFrameIndex());
     const boxList = worldList.map(w => w.annotation.findBoxByTrackId(this.selectedBox.obj_id));
 
     const applyIndList = boxList.map(b => true);
@@ -1051,7 +1055,7 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
     if (!this.ensurePreloaded()) { return; }
 
     let worldList = this.data.worldList.filter(w => w.frameInfo.scene === this.data.world.frameInfo.scene);
-    worldList = worldList.sort((a, b) => a.frameInfo.frameIndex - b.frameInfo.frameIndex);
+    worldList = worldList.sort((a, b) => a.frameInfo.getFrameIndex() - b.frameInfo.getFrameIndex());
 
     const boxList = worldList.map(w => w.annotation.findBoxByTrackId(this.selectedBox.obj_id));
 
@@ -1100,7 +1104,7 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
           this.viewState.lockObjTrackId = targetTrackId; 
         }
 
-        this.onLoadWorldFinished(this.data.world);
+        
 
         // if (this.selectedBox){
         //     // attach again, restore box.boxEditor
@@ -1122,6 +1126,8 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
           this.loadWorld(this.data.world.frameInfo.scene, targetFrame, () => { // onfinished
             this.makeVisible(targetTrackId);
           });
+        } else {
+          this.onLoadWorldFinished(this.data.world);
         }
       }
     );
@@ -1436,7 +1442,7 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
       this.boxOp.auto_rotate_xyz(box, () => {
         box.obj_type = globalObjectCategory.guessObjTypeByDimension(box.scale);
         this.floatLabelManager.setObjectType(box.objLocalId, box.obj_type);
-        this.fastToolBox.setValue(box.obj_type, box.obj_id, box.obj_attr);
+        this.fastToolBox.setValue(box.obj_type, box.obj_id, box.obj_attr, box);
         this.onBoxChanged(box);
       });
     }
@@ -1650,7 +1656,7 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
       // this.floatLabelManager.select_box(this.selectedBox.objLocalId);
 
       this.fastToolBox.setPos(this.floatLabelManager.getLabelEditorPos(this.selectedBox.objLocalId));
-      this.fastToolBox.setValue(object.obj_type, object.obj_id, object.obj_attr);
+      this.fastToolBox.setValue(object.obj_type, object.obj_id, object.obj_attr, object);      
       this.fastToolBox.show(this.handleFastToolboxEvent);
 
       this.boxOp.highlightBox(this.selectedBox);
@@ -2102,7 +2108,7 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
 
     const sceneMeta = this.data.getCurrentWorldSceneMeta();
 
-    const frameIndex = this.data.world.frameInfo.frameIndex - 1;
+    const frameIndex = this.data.world.frameInfo.getFrameIndex() - 1;
 
     if (frameIndex < 0) {
       console.log('first frame');
@@ -2125,11 +2131,11 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
   this.nextFrame = function () {
     if (!this.data.meta) { return; }
 
-    const sceneMeta = this.data.getCurrentWorldSceneMeta();
+    const sceneMeta = this.data.world.sceneMeta;
 
     const numFrames = sceneMeta.frames.length;
 
-    const frameIndex = (this.data.world.frameInfo.frameIndex + 1);
+    const frameIndex = this.data.world.frameInfo.getFrameIndex() + 1;
 
     if (frameIndex >= numFrames) {
       console.log('last frame');
@@ -2307,7 +2313,7 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
         // unselect first time
         this.viewManager.mainView.transformControl.detach();
       }
-      
+
       this.unselectBox(null, true);
       this.unselectBox(null, true);
 
@@ -2480,6 +2486,17 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
     }
   };
 
+  this.removeGroundPoints = function(box) {
+    if (!box) {
+      return;
+    }
+
+    box.scale.z = box.scale.z - 0.04;
+    box.position.z = box.position.z + 0.02;
+    this.onBoxChanged(box);
+
+  };
+
   this.render2dLabels = function (world) {
     if (this.editorCfg.disableMainView) { return; }
 
@@ -2496,11 +2513,7 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
     // }
   };
 
-  this.add_global_obj_type = function () {
-    this.imageContextManager.buildCssStyle();
-
-    const objTypeMap = globalObjectCategory.objTypeMap;
-
+  this.installNewMenu = function(objTypeMap) {
     // submenu of new
     let items = '';
     for (const o in objTypeMap) {
@@ -2525,6 +2538,37 @@ function Editor (editorUi, wrapperUi, editorCfg, data, name = 'editor') {
 
       return true;
     });
+  }
+
+  // this.installShowMenu = function(objTypeMap) {
+  //   // submenu of new
+  //   let items = '';
+  //   for (const o in objTypeMap) {
+  //     items += '<div class="menu-item cm-show-item ' + o + '" id="cm-show-' + o + '" uservalue="' + o + '"><div class="menu-item-text">' + o + '</div></div>';
+  //   }
+
+  //   this.editorUi.querySelector('#show-submenu').innerHTML = items;
+
+  //   this.contextMenu.installMenu('showSubMenu', this.editorUi.querySelector('#show-submenu'), (event) => {
+  //     const objType = event.currentTarget.getAttribute('uservalue');
+  //     this.editBatch(this.data.world.frameInfo.scene,
+  //       this.data.world.frameInfo.frame,
+  //       undefined,
+  //       objType);      
+  //     return true;
+  //   });
+  // }
+
+
+  this.add_global_obj_type = function () {
+    this.imageContextManager.buildCssStyle();
+
+    const objTypeMap = globalObjectCategory.objTypeMap;
+
+    this.installNewMenu(objTypeMap);
+    //this.installShowMenu(objTypeMap);
+
+    this.multiClassChooserBox.setClasses(Object.keys(objTypeMap));
   };
 
   this.interpolate_selected_object = function () {

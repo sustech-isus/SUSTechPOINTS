@@ -179,7 +179,9 @@ class Lidar {
     this.onPreloadFinished = onPreloadFinished;
 
     const url = this.frameInfo.get_pcd_path();
-    loadfile(url).then(buffer => {
+    const [rsp, cancel] = loadfile(url)
+    this.cancelLoading = cancel
+    rsp.then(buffer => {
       if (this.destroyed) {
         console.error('received pcd after world been destroyed.');
         return;
@@ -723,7 +725,7 @@ class Lidar {
     return this.getPointsOfBoxInternal(this.points, box, scaleRatio);
   }
 
-  getPointsOfBoxInWorldCoordinates (box, scaleRatio) {
+  getPointsOfBoxInWorldCoordinates (box, scaleRatio, groundLevel=0.3) {
     const posArray = this.points.geometry.getAttribute('position').array;
     const { index, position } = this.getPointsOfBoxInternal(this.points, box, scaleRatio);
     const ptsTopPart = [];
@@ -732,7 +734,7 @@ class Lidar {
     // const groundHeight = Math.min(0.5, box.scale.z * 0.2)
 
     index.forEach((v, i) => {
-      if (position[i][2] < -box.scale.z / 2 + 0.3) {
+      if (position[i][2] < -box.scale.z / 2 + groundLevel) {
         ptsGroundPart.push(posArray[v * 3]);
         ptsGroundPart.push(posArray[v * 3 + 1]);
         ptsGroundPart.push(posArray[v * 3 + 2]);
@@ -1258,8 +1260,12 @@ class Lidar {
   removeAllPoints () {
     if (this.points) {
       this.world.data.dbg.free('lidar');
+      this.world.webglGroup.remove(this.points);
       this.points.geometry.dispose();
       this.points.material.dispose();
+
+      
+
 
       if (this.points.pointsBackup) {
         this.world.data.dbg.free('lidar');
@@ -1278,6 +1284,10 @@ class Lidar {
 
       this.points = null;
     } else {
+      if (this.cancelLoading) {
+        this.cancelLoading();
+        this.cancelLoading = null;
+      }
       console.error('destroy empty world!');
     }
   }

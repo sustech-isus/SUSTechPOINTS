@@ -81,7 +81,7 @@ class Data {
 
   findWorld (sceneName, frameIndex) {
     const world = this.worldList.find((w) => {
-      return w.frameInfo.scene === sceneName && w.frameInfo.frameIndex === frameIndex;
+      return w.frameInfo.scene === sceneName && w.frameInfo.getFrameIndex() === frameIndex;
     });
 
     if (world) { // found!
@@ -139,11 +139,23 @@ class Data {
     this.offsetsAliveCount--;
   }
 
+  getFrameIndex(sceneMeta, frame) {
+    return sceneMeta.frames.findIndex(x=>x === frame);
+  }
+
   deleteDistantWorlds (world) {
-    const currentWorldIndex = world.frameInfo.frameIndex;
+    // should not use world.frameInfo.frameIndex
+    // since scene.frames is volatile
+    const currentWorldIndex = world.frameInfo.getFrameIndex();
 
     const disposable = (w) => {
-      const distant = Math.abs(w.frameInfo.frameIndex - currentWorldIndex) > this.cfg.maxWorldNumber;
+
+      const wFrameIndex = w.frameInfo.getFrameIndex();
+      if (wFrameIndex < 0) {
+        return true;
+      }
+
+      const distant = Math.abs(wFrameIndex - currentWorldIndex) > this.cfg.maxWorldNumber;
       // let active  = w.everythingDone;
       if (w.annotation.modified) {
         console.log('deleting world unsaved yet. stop.');
@@ -152,14 +164,14 @@ class Data {
       return distant; // && !w.active && !w.annotation.modified;
     };
 
-    const distantWorldList = this.worldList.filter(w => disposable(w));
+    const distantWorldList = this.worldList.filter(w => (disposable(w) && (w !=this.world)));
 
     distantWorldList.forEach(w => {
       this.returnOffset(w.offsetIndex);
       w.deleteAll();
     });
 
-    this.worldList = this.worldList.filter(w => !disposable(w));
+    this.worldList = this.worldList.filter(w => !distantWorldList.includes(w));
   }
 
 
@@ -193,14 +205,15 @@ class Data {
   }
 
   removeRefEgoPoseOfScene (sceneName) {
-    if (this.refEgoPose[sceneName]) { delete this.refEgoPose[sceneName]; }
+    if (this.refEgoPose[sceneName]) { 
+      delete this.refEgoPose[sceneName]; 
+    }
   }
 
   forcePreloadScene (sceneName, currentWorld) {
-    // this.deleteOtherWorldsExcept(sceneName);
     const meta = currentWorld.sceneMeta;
 
-    const currentWorldIndex = currentWorld.frameInfo.frameIndex;
+    const currentWorldIndex = currentWorld.frameInfo.getFrameIndex();
     const startIndex = Math.max(0, currentWorldIndex - this.cfg.maxWorldNumber / 2);
     const endIndex = Math.min(meta.frames.length, startIndex + this.cfg.maxWorldNumber);
 
@@ -359,10 +372,11 @@ class Data {
   activateWorld (world, onFinished, show) {
     if (show) {
       this.world = world;
-
-      this.deleteOtherWorldsExcept(world.frameInfo.scene);
-      this.deleteDistantWorlds(world);
     }
+    
+    this.deleteOtherWorldsExcept(world.frameInfo.scene);
+    this.deleteDistantWorlds(world);
+    
     world.activate(this.webglScene, onFinished);
   }
 
@@ -377,8 +391,18 @@ class Data {
   readSceneMetaData (sceneName) {
     return jsonrpc(`/api/scenemeta?scene=${sceneName}`).then(ret => {
       this.meta[sceneName] = ret;
+      ret.fullFrames = ret.frames; // copy frames.
       return ret;
     });
+  }
+
+
+  setViewFrames(meta, frames) {
+    meta.frames = frames;
+  }
+
+  resetViewFrames(meta) {
+    meta.frames = meta.fullFrames;
   }
 }
 

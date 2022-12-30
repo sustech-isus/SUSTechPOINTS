@@ -4,6 +4,8 @@ import { globalObjectCategory } from './obj_cfg';
 import { ResizableMoveableView } from './common/popup_dialog';
 import { RectEditor } from './image_editor/rect_editor';
 
+
+// localized imagecontext
 function BoxImageContext (ui) {
   this.ui = ui;
 
@@ -198,6 +200,7 @@ class ImageContext extends ResizableMoveableView {
     // });
 
     this.ui.addEventListener('contextmenu', e => e.preventDefault());
+    this.contentUi.addEventListener('click', e=>this.manager.bringUpMe(this));
     this.canvas = this.ui.querySelector('#maincanvas-svg');
 
     this.rectEditor = new RectEditor(this.canvas,
@@ -318,6 +321,11 @@ class ImageContext extends ResizableMoveableView {
       }
     };
   }
+  
+  remove () {
+    this.ui.remove();
+  }
+
 
   onDragableUiMouseDown () {
     this.manager.bringUpMe(this);
@@ -335,9 +343,7 @@ class ImageContext extends ResizableMoveableView {
     this.ui.className = this.ui.className.split(' ').filter(x => x !== className);
   }
 
-  remove () {
-    this.ui.remove();
-  }
+
 
   setImageName (name) {
     const [cameraType, cameraName] = name.split(':');
@@ -644,7 +650,7 @@ class ImageContext extends ResizableMoveableView {
       const p = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       p.setAttribute('cx', x);
       p.setAttribute('cy', y);
-      p.setAttribute('r', 0.1);
+      p.setAttribute('r', 1);
       // p.setAttribute("stroke-width", "1");
 
       if (pointsColor) {
@@ -711,29 +717,21 @@ class ImageContext extends ResizableMoveableView {
       return [];
     }
 
-    return this.world.annotation.boxes.map((box) => {
-      // better remove ground before we calculate the width of the objects.
-      // we assume the objects are all upward.
-      const [points3dTopPart, points3dGroundPart] = this.world.lidar.getPointsOfBoxInWorldCoordinates(box);
-
-      const ptsTopPartOnImg = points3dToImage2d(points3dTopPart, calib, true, null, img.width, img.height);
-      const ptsGroundPartOnImg = points3dToImage2d(points3dGroundPart, calib, true, null, img.width, img.height);
-
-      if (ptsTopPartOnImg && ptsTopPartOnImg.length > 3) {
-        const range = this.find2dPointsRange(ptsTopPartOnImg);
-        const rangeGrd = this.find2dPointsRange(ptsGroundPartOnImg);
-
-        return {
-          rect: { x1: range.minx, y1: range.miny, x2: range.maxx, y2: rangeGrd.maxy ? rangeGrd.maxy : range.maxy },
-          obj_id: box.obj_id,
-          obj_type: box.obj_type,
-          obj_attr: box.obj_attr
-        };
-      } else {
-        return null;
+    const rects = this.world.annotation.boxes
+    .map((box) => {
+      return {
+        obj_id: box.obj_id,
+        byPoints: this.generateRectByPoints(box, img, calib),
+        byCorners: this.generateRectByCorners(box, img, calib),
       }
-    }).filter(x => !!x);
+    })
+    .filter(x => !!x.byPoints || !!x.byCorners);
+    
+   
+    return rects;
   }
+
+
 
   generate2dRectByPointsById (id) {
     const calib = this.getCalib();
@@ -750,26 +748,72 @@ class ImageContext extends ResizableMoveableView {
     const box = this.world.annotation.boxes.find(b => b.obj_id === id);
 
     if (box) {
-      const [points3dTopPart, points3dGroundPart] = this.world.lidar.getPointsOfBoxInWorldCoordinates(box);
+      return this.generateRectByPoints(box, img, calib);
+    }
+
+    return null;
+  }
+
+  generateRectByPoints(box, img, calib) {
+    // better remove ground before we calculate the width of the objects.
+    // we assume the objects are all upward.      
+
+    const [points3dTopPart, points3dGroundPart] = this.world.lidar.getPointsOfBoxInWorldCoordinates(box);
 
       const ptsTopPartOnImg = points3dToImage2d(points3dTopPart, calib, true, null, img.width, img.height);
       const ptsGroundPartOnImg = points3dToImage2d(points3dGroundPart, calib, true, null, img.width, img.height);
+
+      
 
       if (ptsTopPartOnImg && ptsTopPartOnImg.length > 3) {
         const range = this.find2dPointsRange(ptsTopPartOnImg);
         const rangeGrd = this.find2dPointsRange(ptsGroundPartOnImg);
 
+        let rect = { 
+          x1: range.minx, 
+          y1: range.miny, 
+          x2: range.maxx, 
+          y2: rangeGrd.maxy ? rangeGrd.maxy : range.maxy 
+        };
+
+        if ((rect.x2 - rect.x1 < 3) ||  (rect.y2 - rect.y1 < 3)) {
+          return null;
+        }
+
         return {
-          rect: { x1: range.minx, y1: range.miny, x2: range.maxx, y2: rangeGrd.maxy ? rangeGrd.maxy : range.maxy },
+          rect: rect,
           obj_id: box.obj_id,
           obj_type: box.obj_type,
-          obj_attr: box.obj_attr
+          obj_attr: box.obj_attr,
+          annotator: '3dbox'
         };
       }
+
+      return null;
+  }
+
+  generate2dRectByPointsByIdByRemoveGroundPoints (id) {
+    const calib = this.getCalib();
+    if (!calib) {
+      return null;
     }
 
-    return null;
+    const img = this.world[this.cameraType].getImageByName(this.cameraName);
+
+    if (!img || img.width === 0) {
+      return null;
+    }
+
+    const box = this.world.annotation.boxes.find(b => b.obj_id === id);
+
+    if (box) {
+      window.editor.removeGroundPoints(box);
+      return this.generateRectByPoints(box, img, calib);
+    } else {
+      return null;
+    }
   }
+
 
   generate2dRectByBoxById (id) {
     const calib = this.getCalib();
@@ -786,25 +830,43 @@ class ImageContext extends ResizableMoveableView {
     const box = this.world.annotation.boxes.find(b => b.obj_id === id);
 
     if (box) {
-      const corners4d = pxrToXyz(box.position, box.scale, box.rotation)
-      const corners = vector4to3(corners4d)
-      const cornersOnImg = points3dToImage2d(corners, calib, true, null, img.width, img.height);
-
-      if (cornersOnImg.length > 3) {
-        const range = this.find2dPointsRange(cornersOnImg);
-
-        return {
-          rect: { x1: range.minx, y1: range.miny, x2: range.maxx, y2: range.maxy},
-          obj_id: box.obj_id,
-          obj_type: box.obj_type,
-          obj_attr: box.obj_attr
-        };
-      }
+      return this.generateRectByCorners(box, img, calib);
     }
 
     return null;
   }
 
+
+  generateRectByCorners(box, img, calib) {
+    const corners4d = pxrToXyz(box.position, box.scale, box.rotation)
+    const corners = vector4to3(corners4d)
+    const cornersOnImg = points3dToImage2d(corners, calib, true, null, img.width, img.height);
+
+    if (cornersOnImg.length > 3) {
+      const range = this.find2dPointsRange(cornersOnImg);
+
+      let rect = { 
+        x1: range.minx, 
+        y1: range.miny, 
+        x2: range.maxx, 
+        y2: range.maxy,
+      };
+
+      if ((rect.x2 - rect.x1 < 3) ||  (rect.y2 - rect.y1 < 3)) {
+        return null;
+      }
+
+      return {
+        rect: rect,
+        obj_id: box.obj_id,
+        obj_type: box.obj_type,
+        obj_attr: box.obj_attr,
+        annotator: 'corners'
+      };
+    }
+
+    return null;
+  }
 
   drawSvg () {
     // draw picture
@@ -857,8 +919,8 @@ class ImageContext extends ResizableMoveableView {
     if (this.cfg.projectLidarToImage) {
       const svg = this.ui.querySelector('#svg-points');
 
-      const lidarPoints = this.world.lidar.get_all_points();
-      const lidarPointsColor = this.world.lidar.get_all_colors();
+      const lidarPoints = this.world.lidar.getAllPoints();
+      const lidarPointsColor = this.world.lidar.getAllColors();
 
       const imageLidarPointMap = [];
       const ptsOnImg = points3dToImage2d(lidarPoints, calib, true, imageLidarPointMap, img.width, img.height);
@@ -1166,7 +1228,12 @@ class ImageContextManager {
 
   removeImage (image) {
     const selectorName = image.autoSwitch ? 'auto' : image.name;
-    this.selectorUi.querySelector('#camera-item-' + selectorName.replace(':', '-')).className = 'camera-item';
+    const item = this.selectorUi.querySelector('#camera-item-' + selectorName.replace(':', '-'))
+    
+    if (item) {
+      item.className = 'camera-item';
+    }
+
     this.images = this.images.filter(x => x !== image);
     image.remove();
   }
