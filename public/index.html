@@ -60,15 +60,14 @@
 								</div>
 							</div>
 
+							<select id="object-selector">
+								<option>--object--</option>
+							</select>
+
 						</div>
 
-						<select id="object-selector">
-							<option>--object--</option>
-						</select>
-
-						
-						
-						<text id="box"></text>			
+						<text id="general-info"></text>
+						<text id="box"></text>
 						<text id="cur-obj"></text>
 						<text id="ref-obj"></text>						
 					</div>
@@ -1291,8 +1290,15 @@
 								</div>
 							</div>
 						</div>
-						<div id="content"></div>
+						<div id="content">
+							<div id='classes'></div>
+							<div>
+								<input type="text" id="attrs">
+							</div>
+						</div>
 						<div id="bottom-buttons">
+							<button id="btn-clear">Clear</button>
+							<button id="btn-all">All</button>
 							<button id="btn-no">Cancel</button>
 							<button id="btn-yes">Yes</button>							
 						</div>
