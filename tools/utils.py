@@ -212,6 +212,12 @@ class SuscapeScene:
         with open(pose_file) as f:
             pose = json.load(f)
             return pose
+    
+    def read_lidar_pose(self, frame):
+        pose_file = os.path.join(self.scene_path, 'lidar_pose', frame+'.json')
+        with open(pose_file) as f:
+            pose = json.load(f)
+            return pose
 
 def euler_angle_to_rotate_matrix(eu, t):  # ZYX order.
     theta = eu

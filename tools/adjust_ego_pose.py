@@ -11,6 +11,8 @@ parser = argparse.ArgumentParser(description='adjust ego pose')
 parser.add_argument('data', type=str, help="")
 parser.add_argument('--lidar', type=str, default="", help="")
 parser.add_argument('--scenes', type=str, default=".*", help="")
+parser.add_argument('--save-map', type=bool, default=True, help="")
+parser.add_argument('--save-color', type=bool, default=False, help="")
 args = parser.parse_args()
 
 def draw_registration_result(source, target, transformation):
@@ -27,7 +29,7 @@ def draw_registration_result(source, target, transformation):
 
 def register_2_point_clouds(source, target, trans_init):
     """register 2 point clouds using ICP """
-    return trans_init
+    # return trans_init
 
     if trans_init is None:
         trans_init = np.identity(4)
@@ -75,14 +77,16 @@ def combine_and_save_lidars(lidars, poses, file):
     map = np.concatenate(map, axis=0)
     map = map.astype(np.float32)
 
-    color = (map[:, 4:7]*256.0).astype(np.uint8).astype(np.int32)
+    if args.save_color:
+        color = (map[:, 4:7]*256.0).astype(np.uint8).astype(np.int32)
 
-    color = (color[:,0] * 0x100  + color[:,1])*0x100 + color[:,2]
-    color = color.astype(np.int32)
+        color = (color[:,0] * 0x100  + color[:,1])*0x100 + color[:,2]
+        color = color.astype(np.int32)
 
     size = map.shape[0]
     with open(file, 'wb') as f:
-        header = f"""# .PCD v.7 - Point Cloud Data file format
+        if args.save_color:
+            header = f"""# .PCD v.7 - Point Cloud Data file format
 VERSION .7
 FIELDS x y z intensity rgb
 SIZE 4 4 4 4 4
@@ -94,12 +98,27 @@ VIEWPOINT 0 0 0 1 0 0 0
 POINTS {size}
 DATA binary
 """
+        else:
+            header = f"""# .PCD v.7 - Point Cloud Data file format
+VERSION .7
+FIELDS x y z intensity
+SIZE 4 4 4 4
+TYPE F F F F
+COUNT 1 1 1 1
+WIDTH {size}
+HEIGHT 1
+VIEWPOINT 0 0 0 1 0 0 0
+POINTS {size}
+DATA binary
+"""            
             
             
         f.write(header.encode('utf-8'))
         for i,d in enumerate(map[:, :4]): 
             f.write(d.tobytes())
-            f.write(color[i].tobytes())
+            if args.save_color:
+                f.write(color[i].tobytes())
+                
         
 
 def proc_scene(scene):
@@ -186,7 +205,9 @@ def proc_scene(scene):
 
     
     os.makedirs(os.path.join(args.data, scene.name, 'map'), exist_ok=True)
-    combine_and_save_lidars(lidars, poses, os.path.join(args.data, scene.name, 'map', 'map.pcd'))
+
+    if args.save_map:
+        combine_and_save_lidars(lidars, poses, os.path.join(args.data, scene.name, 'map', 'map.pcd'))
 
 
 
