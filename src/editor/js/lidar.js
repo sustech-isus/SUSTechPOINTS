@@ -94,7 +94,7 @@ class Lidar {
     // build geometry
     this.world.data.dbg.alloc('lidar');
     const geometry = new THREE.BufferGeometry();
-    if (position.length > 0) { geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3)); }
+    if (position.length >= 0) { geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3)); }
 
     const normal = pcd.normal;
     // normal and colore are note used in av scenes.

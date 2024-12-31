@@ -34,6 +34,7 @@ function ViewManager (mainViewContainer, webglScene, renderer, globalRenderFunc,
 
   this.setColorScheme = function () {
     const scheme = document.documentElement.className;
+    
     if (scheme === 'theme-dark') {
       this.mainView.backgroundColor = new THREE.Color(0.0, 0.0, 0.0);
       this.boxViewList.forEach(v => {
@@ -44,9 +45,9 @@ function ViewManager (mainViewContainer, webglScene, renderer, globalRenderFunc,
     } else {
       this.mainView.backgroundColor = new THREE.Color(1.0, 1.0, 1.0);
       this.boxViewList.forEach(v => {
-        v.views[0].backgroundColor = new THREE.Color(0.95, 0.9, 0.9);
-        v.views[1].backgroundColor = new THREE.Color(0.9, 0.95, 0.9);
-        v.views[2].backgroundColor = new THREE.Color(0.9, 0.9, 0.95);
+        v.views[0].backgroundColor = this.mainView.backgroundColor//new THREE.Color(0.95, 0.9, 0.9);
+        v.views[1].backgroundColor = this.mainView.backgroundColor//new THREE.Color(0.9, 0.95, 0.9);
+        v.views[2].backgroundColor = this.mainView.backgroundColor//new THREE.Color(0.9, 0.9, 0.95);
       });
     }
   };

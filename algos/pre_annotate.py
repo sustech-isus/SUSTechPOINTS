@@ -17,7 +17,8 @@ RESAMPLE_NUM = 10
 model_file = "./algos/models/deep_annotation_inference.h5"
 
 rotation_model = tf.keras.models.load_model(model_file)
-rotation_model.summary()
+#rotation_model.summary()
+print('model loaded')
 
 NUM_POINT=512
 
@@ -34,7 +35,7 @@ def predict_yaw(points):
     input_data = np.stack([x for x in map(lambda x: sample_one_obj(points, NUM_POINT), range(RESAMPLE_NUM))], axis=0)
     pred_val = rotation_model.predict(input_data)
     pred_cls = np.argmax(pred_val, axis=-1)
-    print(pred_cls)
+    #print(pred_cls)
     
     ret = (pred_cls[0]*3+1.5)*np.pi/180.
     ret =[0,0,ret]

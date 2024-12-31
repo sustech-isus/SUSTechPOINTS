@@ -10,9 +10,9 @@ import numpy as np
 import pypcd.pypcd as pypcd
 import argparse
 import re
-from utils import proj_pts3d_to_img, read_scene_meta, get_calib_for_frame, gen_2dbox_for_obj_pts, crop_pts, gen_2dbox_for_obj_corners
+from utils import proj_pts3d_to_img, read_scene_meta, get_calib_for_frame, crop_pts
 
-parser = argparse.ArgumentParser(description='generate 2d boxes by 3d boxes')        
+parser = argparse.ArgumentParser(description='generate 2d masks by 3d boxes')        
 parser.add_argument('data_folder', type=str, default='./data', help="")
 parser.add_argument('--scenes', type=str, default='.*', help="")
 parser.add_argument('--frames', type=str, default='.*', help="")
@@ -20,7 +20,7 @@ parser.add_argument('--camera_types', type=str, default='aux_camera', help="")
 parser.add_argument('--camera_names', type=str, default='front', help="")
 parser.add_argument('--force_overwrite', type=str, default='no', help="")
 
-parser.add_argument('--mkdirs', type=str, default='no', help="")
+parser.add_argument('--save_dir', type=str, default='./data', help="")
 
 args = parser.parse_args()
 
@@ -33,6 +33,7 @@ scenes.sort()
 
 
 data_folder = args.data_folder
+save_folder = args.save_dir
 camera_types  = args.camera_types.split(",")
 camera_names  = args.camera_names.split(",")
 
@@ -41,7 +42,47 @@ def prepare_dirs(path):
             os.makedirs(path)
 
 
-def gen_2dbox_for_frame_camera(scene, meta, frame, camera_type, camera, extrinsic, intrinsic, objs):
+
+def gen_2dmask_for_obj_pts(box3d_pts, extrinsic, intrinsic, width, height):
+    img_pts_top = proj_pts3d_to_img(box3d_pts[0], extrinsic, intrinsic, width, height)
+    img_pts_ground = proj_pts3d_to_img(box3d_pts[1], extrinsic, intrinsic, width, height)
+
+    pts = np.concatenate([img_pts_top, img_pts_ground], axis=0)
+    pts = pts[:, :2]
+    polygon = []
+
+    if pts.shape[0] > 10:
+        center = np.mean(pts, axis=0)
+        print(center)
+
+
+        centered = pts - center 
+        distances = np.sum(centered * centered, axis=1,keepdims=True)
+        distances = np.concatenate([pts, distances], axis=1)
+
+        angles = np.arctan2(centered[:,1], centered[:,0])
+
+        slots = 100
+        slot = 2*np.pi/slots
+        
+        for x in range(slots):
+            start = -np.pi + x * slot
+            end  = start + slot
+            slot_filter = (angles > start) & (angles <= end)
+            in_slot_pts = distances[slot_filter]
+            if in_slot_pts.shape[0] > 5:
+                p = np.argmax(in_slot_pts[:,2])
+                p  = in_slot_pts[p]
+                polygon.append({
+                    'x': p[0],
+                    'y': p[1]
+                })
+
+   
+    return polygon
+
+
+def gen_2dmasks_for_frame_camera(scene, meta, frame, camera_type, camera, extrinsic, intrinsic, objs):
 
     #print(camera_type, camera)
 
@@ -49,15 +90,15 @@ def gen_2dbox_for_frame_camera(scene, meta, frame, camera_type, camera, extrinsi
     annotated_objs = []
     label = {}
 
-    label2d_file = os.path.join(data_folder, scene, 'label_fusion', camera_type, camera, frame+".json")
+    label_file = os.path.join(save_folder, scene, 'label_mask', camera_type, camera, frame+".json")
     
 
-    if os.path.exists(label2d_file):
-        with open(label2d_file) as f:
+    if os.path.exists(label_file):
+        with open(label_file) as f:
             try:
                 label = json.load(f)
-                kept_objs = list(filter(lambda x: (not 'annotator' in x ) or (x['annotator'] != '3dbox' and x['annotator'] != 'corners'), label['objs']))
-                annotated_objs = label['objs']                
+                kept_objs = list(filter(lambda x: (not 'annotator' in x ) or (x['annotator'] != '3dbox' and x['annotator'] != 'corners'), label['objects']))
+                annotated_objs = label['objects']                
                 # if "version" in label and label['version'] == 1 and args.force_overwrite == 'no':
                 #     print("dont overwrite", scene, frame, camera_type, camera)
                 #     return 
@@ -68,7 +109,8 @@ def gen_2dbox_for_frame_camera(scene, meta, frame, camera_type, camera, extrinsi
                     'cameraName': camera,
                     'scene': scene,
                     'frame': frame,
-                    'objs': []
+                    'image': frame+".jpg",
+                    'objects': []
                 }
             
     else:
@@ -77,7 +119,8 @@ def gen_2dbox_for_frame_camera(scene, meta, frame, camera_type, camera, extrinsi
             'cameraName': camera,
             'scene': scene,
             'frame': frame,
-            'objs': []
+            'image': frame+".jpg",
+                    'objects': []
         }
 
     #print(len(label['objs']), 'manual boxes')
@@ -104,17 +147,16 @@ def gen_2dbox_for_frame_camera(scene, meta, frame, camera_type, camera, extrinsi
             print("unknonwn anno type", anno_type)
             continue
 
-        if anno_type == '3dbox':
-            rect = gen_2dbox_for_obj_pts(o['pts'], extrinsic, intrinsic, meta[camera_type][camera]['width'], meta[camera_type][camera]['height'])
-        else:
-            rect = gen_2dbox_for_obj_corners(o['box3d'], extrinsic, intrinsic, meta[camera_type][camera]['width'], meta[camera_type][camera]['height'])
+        
+        polygon = gen_2dmask_for_obj_pts(o['pts'], extrinsic, intrinsic, meta[camera_type][camera]['width'], meta[camera_type][camera]['height'])
+        
 
-        if rect:
+        if polygon and len(polygon) > 0:
             obj = {
                 "annotator": anno_type,                        
-                "obj_id": o['box3d']['obj_id'],
-                "obj_type": o['box3d']['obj_type'],                
-                "rect": rect,
+                "id": o['box3d']['obj_id'],
+                "label": o['box3d']['obj_type'],                
+                "polygon": polygon,
             }
             
             if 'obj_attr' in o['box3d']:
@@ -123,8 +165,8 @@ def gen_2dbox_for_frame_camera(scene, meta, frame, camera_type, camera, extrinsi
             kept_objs.append(obj)
 
     
-    label['objs'] = kept_objs
-    with open(label2d_file, 'w') as f:
+    label['objects'] = kept_objs
+    with open(label_file, 'w') as f:
         json.dump(label,f,indent=2)
 
 def proc_frame(scene, meta, frame):
@@ -166,7 +208,7 @@ def proc_frame(scene, meta, frame):
     for camera_type in camera_types:
         for camera in camera_names:
             (extrinsic,intrinsic) = get_calib_for_frame(os.path.join(data_folder, scene), meta, camera_type, camera, frame)
-            gen_2dbox_for_frame_camera(scene, meta, frame, camera_type, camera, extrinsic, intrinsic, objs)
+            gen_2dmasks_for_frame_camera(scene, meta, frame, camera_type, camera, extrinsic, intrinsic, objs)
             
 
 
@@ -175,10 +217,10 @@ def proc_frame(scene, meta, frame):
 def gen_2dbox_for_one_scene(scene):
     print(scene)
 
-    if args.mkdirs == 'yes': 
-        for camera_type in camera_types:
-            for camera in camera_names:
-                prepare_dirs(os.path.join(data_folder, scene, 'label_fusion', camera_type, camera))
+    
+    for camera_type in camera_types:
+        for camera in camera_names:
+            prepare_dirs(os.path.join(args.save_dir, scene, 'label_mask', camera_type, camera))
 
     meta = read_scene_meta(os.path.join(data_folder, scene))
    

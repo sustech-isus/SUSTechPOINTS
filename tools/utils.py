@@ -41,7 +41,7 @@ def read_scene_meta(scene):
             for camera in meta[camera_type]:
                 with open(os.path.join(scene, 'calib', camera_type, camera+".json")) as f:
                     meta['calib'][camera_type][camera] = json.load(f)
-                    meta['calib'][camera_type][camera]['extrinsic'] = np.reshape(np.array(meta['calib'][camera_type][camera]['extrinsic']), [4,4])
+                    meta['calib'][camera_type][camera]['extrinsic'] = np.reshape(np.array(meta['calib'][camera_type][camera]['lidar_to_camera']), [4,4])
                     meta['calib'][camera_type][camera]['intrinsic'] = np.reshape(np.array(meta['calib'][camera_type][camera]['intrinsic']), [3,3])
 
     return meta

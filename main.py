@@ -114,7 +114,7 @@ def check_user_access(default=False):
 def check_file_access(default=False):
   if authcfg['global']['auth'] == 'yes':
     url = cherrypy.request.path_info
-    scene = url.split("/")[2]
+    scene = url.split("/")[3]
     userid = get_user_id()
 
     print("file auth",  scene, userid)
@@ -149,14 +149,14 @@ def build_dataset_cfgs():
   dir_org = datacfg['global']['dirorg'] if 'dirorg' in datacfg['global'] else 'by_scene'
   
   if dir_org == 'by_scene':
-    root = datacfg['global']['rootdir'] 
+    root = os.path.abspath(datacfg['global']['rootdir'])
     for d in ['lidar',  'label', 'camera', 'calib', 'aux_lidar', 'aux_camera', 'radar', 'desc', 'meta','label_fusion', 'lidar_pose']:
       dataset_cfg[d] = datacfg['global'][d] if d in datacfg['global'] else root
     dataset_cfg['root'] = root
     
   elif dir_org == 'by_data_folder':
 
-    root = datacfg['global']['rootdir'] 
+    root = os.path.abspath(datacfg['global']['rootdir'])
 
 
     for d in ['lidar',  'label', 'camera', 'calib', 'aux_lidar', 'aux_camera', 'radar', 'desc', 'meta','label_fusion', 'lidar_pose']:
@@ -466,7 +466,7 @@ class Api(object):
 cherrypy.config.update("./conf/server.conf")
 
 
-if authcfg['global']['auth'] == 'yes':
+if authcfg['global']['auth'] == 'yes' and authcfg['global']['https'] == 'yes':
   cherrypy.config.update({
     'server.ssl_module': 'builtin',
     'server.ssl_certificate': './conf/cert/cert.crt',
@@ -589,7 +589,45 @@ if authcfg['global']['auth'] == 'yes':
         'tools.check_user_access.default': True,
         },
     }
+else:
+    for d in ['camera', 'lidar', 'radar', 'aux_camera', 'aux_lidar', 'lidar_pose', 'calib']:
+        root_config['/data/'+d] = {
+        'tools.staticdir.on': True,
+        'tools.staticdir.dir': dataset_cfg[d],
+        'tools.caching.on': True,
+        'tools.gzip.on': True,
+        'tools.etags.on': True,
+        'tools.etags.autotags': True,
+        'tools.response_headers.on': True,
+        'tools.response_headers.headers': [
+                 ('cache-control', 'public, max-age=604800')
+             ],
+        'tools.check_file_access.on': True,
+        'tools.check_file_access.default': True,
+      }
 
+    root_config['/data'] = {
+        'tools.staticdir.on': True,
+        'tools.staticdir.dir': datacfg['global']['rootdir'],
+        'tools.caching.on': True,
+        'tools.gzip.on': True,
+        'tools.etags.on': True,
+        'tools.etags.autotags': True,
+        'tools.response_headers.on': True,
+        'tools.response_headers.headers': [
+                 ('cache-control', 'public, max-age=604800')
+             ],
+        'tools.check_file_access.on': True,
+        'tools.check_file_access.default': True,
+      }
+  
+    api_config = {
+      '/':{
+        'tools.check_user_access.on': True,
+        'tools.check_user_access.default': True,
+        },
+    }
+    
 cherrypy.tree.mount(Root(), "/", root_config)
 cherrypy.tree.mount(Api(), "/api", api_config)
 

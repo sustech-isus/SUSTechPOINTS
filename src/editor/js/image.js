@@ -1331,6 +1331,11 @@ function boxTo2dPoints (box, calib) {
 // points3d is length 4 row vector, homogeneous coordinates
 // returns 2d row vectors
 function points3dHomoToImage2d (points3d, calib, acceptPartial = false, saveMap, imageDx, imageDy) {
+
+  if (!calib || !calib.extrinsic) {
+    return null;
+  }
+  
   let imgpos = matmul(calib.extrinsic, points3d, 4);
   const posInCameraSpace = imgpos;
 
@@ -1423,9 +1428,16 @@ function chooseBestCameraForPoint (world, center) {
   const projPos = [];
   world.sceneMeta.camera.forEach((cameraName) => {
     const cameraGroup = world.data.cfg.cameraGroupForContext;
-    const imgpos = matmul(world.calib.getCalib(cameraGroup, cameraName).extrinsic, [center.x, center.y, center.z, 1], 4);
-    projPos.push({ camera: cameraGroup + ':' + cameraName, pos: vector4to3(imgpos) });
+    const calib = world.calib.getCalib(cameraGroup, cameraName)
+    if (calib && calib.extrinsic) {
+      const imgpos = matmul(calib.extrinsic, [center.x, center.y, center.z, 1], 4);
+      projPos.push({ camera: cameraGroup + ':' + cameraName, pos: vector4to3(imgpos) });
+    }    
   });
+
+  if (projPos.length === 0) {
+    return null;
+  }
 
   const validProjPos = projPos.filter(function (p) {
     return allPointsInImageRange(p.pos);
